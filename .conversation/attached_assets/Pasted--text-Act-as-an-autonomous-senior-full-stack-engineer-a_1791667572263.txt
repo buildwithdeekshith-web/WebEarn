@@ -1,0 +1,104 @@
+```text
+Act as an autonomous senior full-stack engineer and product designer. Build WebEarn from scratch and continue until a complete, runnable MVP works locally. Do not stop at wireframes, explanations, partial components, or a plan.
+
+WebEarn connects small businesses that need affordable websites with students who can build them for paid, real-world experience.
+
+Your deliverable:
+A complete, responsive web application with frontend, backend, database, authentication, seeded demo data, and clear local setup instructions. The app must run successfully after installation.
+
+Core roles:
+- Business owner
+- Student developer
+- Admin
+
+Required end-to-end workflow:
+1. A business owner signs up, creates a profile, and posts a website project.
+2. The project includes business details, required pages/features, budget, deadline, reference links, and notes.
+3. Students browse and filter available projects.
+4. A student submits a proposal containing a message, quoted price, delivery timeline, and relevant portfolio links.
+5. The business owner reviews proposals and selects a student.
+6. The platform creates a project workspace with status tracking, milestones, messages, preview links, feedback, and approval.
+7. The student submits a preview or final website link.
+8. The business owner requests revisions or approves the work.
+9. Approval marks the payment as released. Use a safe mock escrow/payment flow if no payment provider is configured.
+10. Both users leave ratings and reviews.
+11. The approved project appears in the student’s portfolio.
+
+Build these screens:
+- Public landing page
+- Login and signup pages
+- Role selection during onboarding
+- Business dashboard
+- Student dashboard
+- Admin dashboard
+- Create project page
+- Project discovery/listing page with filters
+- Project detail page
+- Proposal submission page
+- Proposal review and acceptance page
+- Project workspace with chat, milestones, preview links, feedback, approval, and payment status
+- Student profile and portfolio
+- Business profile
+- Ratings and reviews
+- Admin moderation pages for users, projects, disputes, and payments
+
+Use these project-brief fields:
+- Business name and category
+- About the business
+- Required pages
+- Required features
+- Budget range
+- Deadline
+- Reference websites
+- Additional notes
+
+Use these student-profile fields:
+- Name and bio
+- Skills
+- Location and availability
+- Portfolio items
+- Completed projects
+- Ratings
+- Earnings summary
+
+Business logic:
+- Only authenticated businesses can create projects.
+- Only authenticated students can send proposals.
+- A business can accept one proposal per project.
+- Accepted projects have statuses: active, submitted, revision_requested, approved, disputed, completed.
+- Keep all project communication inside the platform.
+- Track milestones and updates.
+- Do not release mock payment until the business approves the project.
+- Allow either party to open a dispute.
+- Let admins view and resolve disputes.
+- Enforce role-based access control across routes and API endpoints.
+
+Technical requirements:
+- Use a modern full-stack stack suitable for fast local development.
+- Prefer Next.js, TypeScript, Tailwind CSS, Prisma, and PostgreSQL or SQLite for the MVP.
+- Use secure password hashing and session-based or JWT authentication.
+- Design a normalized database for users, profiles, projects, proposals, milestones, messages, submissions, reviews, disputes, and payments.
+- Include database migrations and seed data.
+- Seed realistic demo accounts for each role and projects such as a bakery, salon, restaurant, tutor, or local retail store.
+- Add form validation, loading states, empty states, error states, and mobile responsiveness.
+- Use a professional, welcoming blue and teal visual style.
+- Keep language simple for non-technical business owners.
+- Build reusable UI components and maintain clean project structure.
+- Never expose secrets in source control. Provide `.env.example`.
+
+Definition of done:
+- The application installs and runs locally.
+- All required routes render without errors.
+- Demo accounts can sign in.
+- A business can post a project.
+- A student can find it and submit a proposal.
+- The business can accept the proposal.
+- Both users can use the project workspace.
+- The student can submit a preview.
+- The business can request a revision or approve it.
+- Approval updates payment status and enables reviews.
+- Seeded data demonstrates every major state.
+- Include a complete README with prerequisites, setup, database commands, demo credentials, architecture, and future integration points for Stripe or Razorpay.
+
+Work autonomously from an empty folder. First scaffold the project, then implement the database, authentication, UI, APIs, demo data, and full user flow. Continuously test the running application and fix issues until the MVP is functional.
+```

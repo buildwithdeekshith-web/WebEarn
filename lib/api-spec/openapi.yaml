@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: WebEarn marketplace API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: projects
+  - name: proposals
+  - name: workspace
+  - name: profiles
+  - name: reviews
+  - name: admin
 paths:
   /healthz:
     get:
@@ -24,7 +30,497 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the signed-in user's account and profile
+      responses:
+        "200":
+          description: User account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: saveCurrentProfile
+      tags: [auth]
+      summary: Create or update the signed-in user's role profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [profiles]
+      summary: Get role-aware dashboard overview and recent activity
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: Browse available projects with optional filters
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: maxBudget
+          in: query
+          schema: { type: number }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [newest, budget] }
+      responses:
+        "200":
+          description: Project results
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Project" }
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Post a website project as a business
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectInput" }
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project details and proposal count
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update project fields or status as its owner or an admin
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectUpdate" }
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /projects/{projectId}/proposals:
+    get:
+      operationId: listProjectProposals
+      tags: [proposals]
+      summary: List proposals visible to the project owner or applicant
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Proposal list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Proposal" }
+    post:
+      operationId: createProposal
+      tags: [proposals]
+      summary: Submit a student proposal
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProposalInput" }
+      responses:
+        "201":
+          description: Submitted proposal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Proposal" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /proposals/{proposalId}/accept:
+    post:
+      operationId: acceptProposal
+      tags: [proposals]
+      summary: Accept a proposal and open the project workspace
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Accepted proposal and active project
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /projects/{projectId}/workspace:
+    get:
+      operationId: getWorkspace
+      tags: [workspace]
+      summary: Get the selected proposal and project workspace
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project collaboration workspace
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workspace" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /projects/{projectId}/messages:
+    get:
+      operationId: listMessages
+      tags: [workspace]
+      summary: Read project conversation
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Message" }
+    post:
+      operationId: sendMessage
+      tags: [workspace]
+      summary: Send a project message
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MessageInput" }
+      responses:
+        "201":
+          description: Sent message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+  /projects/{projectId}/milestones/{milestoneId}:
+    patch:
+      operationId: updateMilestone
+      tags: [workspace]
+      summary: Update milestone completion
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: milestoneId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MilestoneUpdate" }
+      responses:
+        "200":
+          description: Updated milestone
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Milestone" }
+  /projects/{projectId}/submissions:
+    post:
+      operationId: submitProject
+      tags: [workspace]
+      summary: Submit a project preview or final website
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmissionInput" }
+      responses:
+        "201":
+          description: Submission created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Submission" }
+  /projects/{projectId}/revision:
+    post:
+      operationId: requestRevision
+      tags: [workspace]
+      summary: Ask the student for a revision
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FeedbackInput" }
+      responses:
+        "200":
+          description: Revision requested
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+  /projects/{projectId}/approve:
+    post:
+      operationId: approveProject
+      tags: [workspace]
+      summary: Approve submitted work and release mock payment
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Completed project with released mock payment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+  /projects/{projectId}/disputes:
+    post:
+      operationId: openDispute
+      tags: [workspace]
+      summary: Open a project dispute
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DisputeInput" }
+      responses:
+        "201":
+          description: Dispute opened
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dispute" }
+  /users/{userId}/reviews:
+    get:
+      operationId: listUserReviews
+      tags: [reviews]
+      summary: Get reviews for a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Review" }
+  /users/{userId}/profile:
+    get:
+      operationId: getPublicProfile
+      tags: [profiles]
+      summary: View a student or business profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Public profile and portfolio
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicProfile" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{projectId}/reviews:
+    post:
+      operationId: createReview
+      tags: [reviews]
+      summary: Leave a review after project approval
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewInput" }
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [admin]
+      summary: Admin overview counts
+      responses:
+        "200":
+          description: Moderation overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOverview" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: Search platform users for moderation
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CurrentUser" }
+  /admin/projects:
+    get:
+      operationId: listAdminProjects
+      tags: [admin]
+      summary: List projects for moderation
+      responses:
+        "200":
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Project" }
+  /admin/disputes:
+    get:
+      operationId: listDisputes
+      tags: [admin]
+      summary: List disputes for admin review
+      responses:
+        "200":
+          description: Disputes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Dispute" }
+  /admin/disputes/{disputeId}/resolve:
+    post:
+      operationId: resolveDispute
+      tags: [admin]
+      summary: Resolve dispute and set payment disposition
+      parameters:
+        - name: disputeId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DisputeResolutionInput" }
+      responses:
+        "200":
+          description: Resolved dispute
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dispute" }
+  /admin/payments:
+    get:
+      operationId: listAdminPayments
+      tags: [admin]
+      summary: List mock escrow records
+      responses:
+        "200":
+          description: Payment records
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Payment" }
 components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema: { type: integer }
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Not allowed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Record not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Request conflicts with existing project state
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +529,282 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+    CurrentUser:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string }
+        role: { type: ["string", "null"], enum: [business, student, admin, null] }
+        bio: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        location: { type: ["string", "null"] }
+        availability: { type: ["string", "null"] }
+        skills:
+          type: array
+          items: { type: string }
+        portfolioLinks:
+          type: array
+          items: { type: string }
+        rating: { type: number }
+        completedProjects: { type: integer }
+        earnings: { type: number }
+      required: [id, email, name, skills, portfolioLinks, rating, completedProjects, earnings]
+    PublicProfile:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [business, student, admin] }
+        bio: { type: string }
+        category: { type: string }
+        location: { type: string }
+        availability: { type: string }
+        skills: { type: array, items: { type: string } }
+        portfolioLinks: { type: array, items: { type: string } }
+        completedProjects: { type: integer }
+        rating: { type: number }
+        reviews:
+          type: array
+          items: { $ref: "#/components/schemas/Review" }
+      required: [id, name, role, bio, category, location, availability, skills, portfolioLinks, completedProjects, rating, reviews]
+    ProfileInput:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        role: { type: string, enum: [business, student] }
+        name: { type: string, minLength: 1 }
+        bio: { type: string }
+        category: { type: string }
+        location: { type: string }
+        availability: { type: string }
+        skills: { type: array, items: { type: string } }
+        portfolioLinks: { type: array, items: { type: string } }
+      required: [email, role, name]
+    Dashboard:
+      type: object
+      properties:
+        activeProjects: { type: integer }
+        openProposals: { type: integer }
+        completedProjects: { type: integer }
+        earnings: { type: number }
+        projects:
+          type: array
+          items: { $ref: "#/components/schemas/Project" }
+        activity:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+      required: [activeProjects, openProposals, completedProjects, earnings, projects, activity]
+    Activity:
+      type: object
+      properties:
+        id: { type: string }
+        text: { type: string }
+        createdAt: { type: string, format: date-time }
+        projectId: { type: ["integer", "null"] }
+      required: [id, text, createdAt]
+    Project:
+      type: object
+      properties:
+        id: { type: integer }
+        businessId: { type: string }
+        businessName: { type: string }
+        title: { type: string }
+        category: { type: string }
+        about: { type: string }
+        requiredPages: { type: array, items: { type: string } }
+        requiredFeatures: { type: array, items: { type: string } }
+        minBudget: { type: number }
+        maxBudget: { type: number }
+        deadline: { type: ["string", "null"], format: date }
+        referenceLinks: { type: array, items: { type: string } }
+        notes: { type: string }
+        status: { type: string, enum: [open, active, submitted, revision_requested, approved, disputed, completed, cancelled] }
+        proposalCount: { type: integer }
+        studentId: { type: ["string", "null"] }
+        studentName: { type: ["string", "null"] }
+        previewUrl: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        paymentStatus: { type: string, enum: [not_funded, held, released, refunded, disputed] }
+      required: [id, businessId, businessName, title, category, about, requiredPages, requiredFeatures, minBudget, maxBudget, deadline, referenceLinks, notes, status, proposalCount, studentId, studentName, previewUrl, createdAt, paymentStatus]
+    ProjectInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 4 }
+        category: { type: string }
+        about: { type: string, minLength: 10 }
+        requiredPages: { type: array, items: { type: string } }
+        requiredFeatures: { type: array, items: { type: string } }
+        minBudget: { type: number, minimum: 0 }
+        maxBudget: { type: number, minimum: 1 }
+        deadline: { type: ["string", "null"], format: date }
+        referenceLinks: { type: array, items: { type: string } }
+        notes: { type: string }
+      required: [title, category, about, requiredPages, requiredFeatures, minBudget, maxBudget]
+    ProjectUpdate:
+      type: object
+      properties:
+        title: { type: string }
+        notes: { type: string }
+        status: { type: string, enum: [open, active, submitted, revision_requested, approved, disputed, completed, cancelled] }
+    Proposal:
+      type: object
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        studentId: { type: string }
+        studentName: { type: string }
+        studentBio: { type: string }
+        studentRating: { type: number }
+        studentSkills: { type: array, items: { type: string } }
+        portfolioLinks: { type: array, items: { type: string } }
+        message: { type: string }
+        quote: { type: number }
+        timelineDays: { type: integer }
+        status: { type: string, enum: [pending, accepted, declined] }
+        createdAt: { type: string, format: date-time }
+      required: [id, projectId, studentId, studentName, studentBio, studentRating, studentSkills, portfolioLinks, message, quote, timelineDays, status, createdAt]
+    ProposalInput:
+      type: object
+      properties:
+        message: { type: string, minLength: 20 }
+        quote: { type: number, minimum: 1 }
+        timelineDays: { type: integer, minimum: 1 }
+        portfolioLinks: { type: array, items: { type: string } }
+      required: [message, quote, timelineDays]
+    Workspace:
+      type: object
+      properties:
+        project: { $ref: "#/components/schemas/Project" }
+        proposal: { $ref: "#/components/schemas/Proposal" }
+        milestones:
+          type: array
+          items: { $ref: "#/components/schemas/Milestone" }
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/Message" }
+        submissions:
+          type: array
+          items: { $ref: "#/components/schemas/Submission" }
+        disputes:
+          type: array
+          items: { $ref: "#/components/schemas/Dispute" }
+        canReview: { type: boolean }
+      required: [project, proposal, milestones, messages, submissions, disputes, canReview]
+    Milestone:
+      type: object
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        title: { type: string }
+        dueDate: { type: ["string", "null"], format: date }
+        completed: { type: boolean }
+      required: [id, projectId, title, dueDate, completed]
+    MilestoneUpdate:
+      type: object
+      properties:
+        completed: { type: boolean }
+      required: [completed]
+    Message:
+      type: object
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        senderId: { type: string }
+        senderName: { type: string }
+        text: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, projectId, senderId, senderName, text, createdAt]
+    MessageInput:
+      type: object
+      properties:
+        text: { type: string, minLength: 1 }
+      required: [text]
+    Submission:
+      type: object
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        url: { type: string, format: uri }
+        note: { type: string }
+        kind: { type: string, enum: [preview, final] }
+        createdAt: { type: string, format: date-time }
+      required: [id, projectId, url, note, kind, createdAt]
+    SubmissionInput:
+      type: object
+      properties:
+        url: { type: string, format: uri }
+        note: { type: string }
+        kind: { type: string, enum: [preview, final] }
+      required: [url, note, kind]
+    FeedbackInput:
+      type: object
+      properties:
+        message: { type: string, minLength: 3 }
+      required: [message]
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        reviewerId: { type: string }
+        reviewerName: { type: string }
+        subjectId: { type: string }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, projectId, reviewerId, reviewerName, subjectId, rating, comment, createdAt]
+    ReviewInput:
+      type: object
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, minLength: 3 }
+      required: [rating, comment]
+    Dispute:
+      type: object
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        projectTitle: { type: string }
+        openedBy: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [open, resolved, dismissed] }
+        resolution: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+      required: [id, projectId, projectTitle, openedBy, reason, status, resolution, createdAt]
+    DisputeInput:
+      type: object
+      properties:
+        reason: { type: string, minLength: 10 }
+      required: [reason]
+    DisputeResolutionInput:
+      type: object
+      properties:
+        resolution: { type: string, enum: [release_to_student, refund_business, dismiss] }
+        note: { type: string }
+      required: [resolution]
+    Payment:
+      type: object
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        projectTitle: { type: string }
+        amount: { type: number }
+        status: { type: string, enum: [held, released, refunded, disputed] }
+        updatedAt: { type: string, format: date-time }
+      required: [id, projectId, projectTitle, amount, status, updatedAt]
+    AdminOverview:
+      type: object
+      properties:
+        users: { type: integer }
+        projects: { type: integer }
+        openProjects: { type: integer }
+        activeDisputes: { type: integer }
+        heldPayments: { type: number }
+      required: [users, projects, openProjects, activeDisputes, heldPayments]
 

@@ -1,6 +1,6 @@
-# [Project name]
+# WebEarn
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+WebEarn connects small businesses that need affordable websites with students who build paid portfolios through real client projects.
 
 ## Run & Operate
 
@@ -22,15 +22,23 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/webearn` — responsive marketplace UI and Clerk sign-in flow
+- `artifacts/api-server` — Express API, Clerk middleware, and project workflows
+- `lib/db/src/schema/webearn.ts` — PostgreSQL tables
+- `lib/api-spec/openapi.yaml` — API contract source of truth
+- `lib/db/seed.sql` — reusable demo data
+- `README.md` — setup and workflow documentation
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Clerk owns sign-in and sessions; WebEarn stores the account role and marketplace profile.
+- Payment records are mock escrow states only; the MVP does not accept or transfer money.
+- Public demo listings are browseable before sign-in; posting, proposals, messages, and approvals require authenticated participants.
+- WebEarn API types and validators are generated from the OpenAPI contract.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Businesses can post website briefs and select student proposals. Students can discover work, collaborate in a workspace, submit previews, earn reviews, and add approved work to their portfolios. Admin endpoints cover users, projects, disputes, and mock payment records.
 
 ## User preferences
 
@@ -38,7 +46,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- After editing `lib/api-spec/openapi.yaml`, run codegen before relying on API hooks or validators.
+- Seeded profiles are demo content, not Clerk accounts; users create real accounts through Clerk sign-up.
+- For local development, set both `PORT` and `BASE_PATH` before running the web artifact.
 
 ## Pointers
 

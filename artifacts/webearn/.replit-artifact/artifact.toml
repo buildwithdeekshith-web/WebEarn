@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "WebEarn"
+description = "A marketplace where small businesses can hire student developers for affordable websites, and students can build paid portfolios through real client projects."
+version = "1.0.0"
+id = "artifacts/webearn"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23367
+
+[services.development]
+run = "pnpm --filter @workspace/webearn run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/webearn", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/webearn/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23367"
+BASE_PATH = "/"
