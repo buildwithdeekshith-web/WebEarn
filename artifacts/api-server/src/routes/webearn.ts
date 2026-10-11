@@ -245,7 +245,10 @@ router.get("/projects", async (req, res): Promise<void> => {
     return;
   }
   const { search, category, maxBudget, sort } = parsed.data;
+  const viewer = await viewerFor(req);
   const filters = [eq(projects.status, "open")];
+  // Business accounts see only their own briefs; students can browse all open briefs.
+  if (viewer?.role === "business") filters.push(eq(projects.businessId, viewer.id));
   if (category) filters.push(eq(projects.category, category));
   if (maxBudget !== undefined) filters.push(sql`${projects.minBudget} <= ${maxBudget}`);
   if (search) filters.push(or(ilike(projects.title, `%${search}%`), ilike(projects.about, `%${search}%`))!);
@@ -291,6 +294,11 @@ router.get("/projects/:projectId", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Project not found." });
     return;
   }
+  const viewer = await viewerFor(req);
+  if (viewer?.role === "business" && viewer.id !== project.businessId && !await canAdmin(req)) {
+    res.status(404).json({ error: "Project not found." });
+    return;
+  }
   res.json(GetProjectResponse.parse(await projectView(project)));
 });
 
@@ -310,7 +318,19 @@ router.patch("/projects/:projectId", async (req, res): Promise<void> => {
     res.status(403).json({ error: "Only the project owner or an admin can update this project." });
     return;
   }
-  const [updated] = await db.update(projects).set(parsed.data).where(eq(projects.id, existing.id)).returning();
+  const input = parsed.data;
+  if ((input.minBudget !== undefined || input.maxBudget !== undefined) &&
+      (input.maxBudget ?? existing.maxBudget) < (input.minBudget ?? existing.minBudget)) {
+    res.status(400).json({ error: "The maximum budget must be at least the minimum budget." });
+    return;
+  }
+  const updates = {
+    ...input,
+    ...(input.deadline !== undefined
+      ? { deadline: input.deadline ? input.deadline.toISOString().slice(0, 10) : null }
+      : {}),
+  };
+  const [updated] = await db.update(projects).set(updates).where(eq(projects.id, existing.id)).returning();
   res.json(UpdateProjectResponse.parse(await projectView(updated)));
 });
 
@@ -354,6 +374,10 @@ router.post("/projects/:projectId/proposals", async (req, res): Promise<void> =>
   const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId)).limit(1);
   if (!project || project.status !== "open") {
     res.status(404).json({ error: "This project is no longer accepting proposals." });
+    return;
+  }
+  if (parsed.data.quote < project.minBudget || parsed.data.quote > project.maxBudget) {
+    res.status(400).json({ error: "Your quote must be within the posted budget." });
     return;
   }
   const [duplicate] = await db.select().from(proposals).where(and(eq(proposals.projectId, project.id), eq(proposals.studentId, viewer.id))).limit(1);
