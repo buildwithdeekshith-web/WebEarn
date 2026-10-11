@@ -350,7 +350,7 @@ function ProjectDetails() {
       requiredPages: String(f.get('requiredPages') || '').split(',').map(s => s.trim()).filter(Boolean),
       requiredFeatures: String(f.get('requiredFeatures') || '').split(',').map(s => s.trim()).filter(Boolean),
       minBudget, maxBudget, deadline: String(f.get('deadline') || '') || null,
-      referenceLinks: String(f.get('referenceLinks') || '').split('\\n').map(s => s.trim()).filter(Boolean),
+      referenceLinks: String(f.get('referenceLinks') || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean),
       notes: String(f.get('notes') || ''),
     } }, { onSuccess: () => { setEditing(false); setNotice('Your brief has been updated.'); client.invalidateQueries({ queryKey: getGetProjectQueryKey(id) }); client.invalidateQueries({ queryKey: getListProjectsQueryKey() }); client.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); }, onError: () => setNotice('The brief could not be updated. Please check the details and try again.') });
   }
@@ -370,7 +370,7 @@ function ProjectDetails() {
             <Field label="Minimum budget" name="minBudget" type="number" min="0" defaultValue={String(project.minBudget)} required />
             <Field label="Maximum budget" name="maxBudget" type="number" min="1" defaultValue={String(project.maxBudget)} required />
             <Field label="Ideal finish date" name="deadline" type="date" defaultValue={project.deadline || ''} />
-            <Field label="Reference links (one per line)" name="referenceLinks" defaultValue={project.referenceLinks?.join('\\n') || ''} multiline />
+            <Field label="Reference links (one per line)" name="referenceLinks" defaultValue={project.referenceLinks?.join('\n') || ''} multiline />
             <label className="block md:col-span-2"><span className="mb-2 block text-sm font-bold text-[#385a67]">Additional notes</span><textarea name="notes" defaultValue={project.notes || ''} rows={3} className={inputStyle + ' resize-y'} /></label>
           </div>
           <div className="mt-5 flex justify-end"><Button type="submit" disabled={update.isPending}>{update.isPending ? 'Saving…' : 'Save brief changes'}</Button></div>
