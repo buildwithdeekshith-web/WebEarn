@@ -255,6 +255,7 @@ function Dashboard() {
 }
 
 function ProjectsPage() {
+  const { data: me } = useGetCurrentUser();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [budget, setBudget] = useState('');
@@ -262,7 +263,8 @@ function ProjectsPage() {
   const params = { ...(search ? { search } : {}), ...(category ? { category } : {}), ...(budget ? { maxBudget: Number(budget) } : {}), sort };
   const { data, isLoading, isError, refetch } = useListProjects(params);
   const categories = ['Brand & design', 'Business website', 'Portfolio', 'Online store', 'Landing page', 'Other'];
-  return <div className="page-enter"><PageHeading eyebrow="The open brief board" title="Find work worth doing." text="Browse real small-business projects. Every brief starts with a budget and a clear description." action={<Button href="/projects/new"><Plus size={16} /> Post a project</Button>} />
+  const business = me?.role === 'business';
+  return <div className="page-enter"><PageHeading eyebrow={business ? 'Your business briefs' : 'The open brief board'} title={business ? 'Your briefs, your matches.' : 'Find work worth doing.'} text={business ? 'Manage your briefs and review students who have expressed interest in your work.' : 'Browse business briefs and express interest when the work and budget are right for you.'} action={business ? <Button href="/projects/new"><Plus size={16} /> Create a brief</Button> : undefined} />
     <div className="mb-6 grid gap-3 rounded-2xl border border-[#dce9e8] bg-white p-4 md:grid-cols-[1.5fr_1fr_1fr_auto]">
       <label className="relative"><Search className="absolute left-3 top-3 text-[#82969c]" size={17} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search project briefs" className="h-11 w-full rounded-xl border border-[#d8e5e4] bg-[#fbfdfc] pl-10 pr-3 text-sm outline-none focus:border-[#5aabb0]" data-testid="input-project-search" /></label>
       <select value={category} onChange={e => setCategory(e.target.value)} className="h-11 rounded-xl border border-[#d8e5e4] bg-[#fbfdfc] px-3 text-sm text-[#476571] outline-none focus:border-[#5aabb0]" data-testid="select-project-category"><option value="">All categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select>
@@ -328,21 +330,52 @@ function ProjectDetails() {
   const { data: me } = useGetCurrentUser();
   const submitProposal = useCreateProposal(); const accept = useAcceptProposal(); const update = useUpdateProject();
   const client = useQueryClient();
-  const [formOpen, setFormOpen] = useState(false); const [message, setMessage] = useState(''); const [quote, setQuote] = useState(''); const [days, setDays] = useState('14'); const [notice, setNotice] = useState('');
+  const [editing, setEditing] = useState(false); const [notice, setNotice] = useState('');
   if (isLoading) return <><PageHeading title="Project brief" /><SkeletonRows /></>;
   if (isError || !project) return <><PageHeading title="Project brief" /><ErrorState retry={() => refetch()} /></>;
   const own = me?.id === project.businessId;
   const canApply = me?.role === 'student' && project.status === 'open' && !own;
-  function apply(e: FormEvent) {
+  const alreadyInterested = !!proposals?.some((p: Proposal) => p.studentId === me?.id);
+  function apply() {
+    if (!me || me.role !== 'student' || alreadyInterested) return;
+    submitProposal.mutate({ projectId: id, data: { message: 'Interested in this business type and available within the posted budget.', quote: project.maxBudget, timelineDays: 14, portfolioLinks: me.portfolioLinks || [] } }, { onSuccess: () => { setNotice('Your interest is saved. The business owner can now view your profile.'); client.invalidateQueries({ queryKey: getListProjectProposalsQueryKey(id) }); client.invalidateQueries({ queryKey: getGetProjectQueryKey(id) }); client.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); }, onError: () => setNotice('We couldn’t save your interest. You may already have responded to this brief.') });
+  }
+  function saveBrief(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    submitProposal.mutate({ projectId: id, data: { message, quote: Number(quote), timelineDays: Number(days), portfolioLinks: me?.portfolioLinks || [] } }, { onSuccess: () => { setNotice('Your proposal is on its way. The business owner can review it from this brief.'); setFormOpen(false); setMessage(''); client.invalidateQueries({ queryKey: getListProjectProposalsQueryKey(id) }); client.invalidateQueries({ queryKey: getGetProjectQueryKey(id) }); }, onError: () => setNotice('We couldn’t send the proposal. Please check your details and try again.') });
+    const f = new FormData(e.currentTarget);
+    const minBudget = Number(f.get('minBudget')); const maxBudget = Number(f.get('maxBudget'));
+    if (!Number.isFinite(minBudget) || !Number.isFinite(maxBudget) || maxBudget < minBudget) { setNotice('The maximum budget must be at least the minimum budget.'); return; }
+    update.mutate({ projectId: id, data: {
+      title: String(f.get('title')), category: String(f.get('category')), about: String(f.get('about')),
+      requiredPages: String(f.get('requiredPages') || '').split(',').map(s => s.trim()).filter(Boolean),
+      requiredFeatures: String(f.get('requiredFeatures') || '').split(',').map(s => s.trim()).filter(Boolean),
+      minBudget, maxBudget, deadline: String(f.get('deadline') || '') || null,
+      referenceLinks: String(f.get('referenceLinks') || '').split('\\n').map(s => s.trim()).filter(Boolean),
+      notes: String(f.get('notes') || ''),
+    } }, { onSuccess: () => { setEditing(false); setNotice('Your brief has been updated.'); client.invalidateQueries({ queryKey: getGetProjectQueryKey(id) }); client.invalidateQueries({ queryKey: getListProjectsQueryKey() }); client.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); }, onError: () => setNotice('The brief could not be updated. Please check the details and try again.') });
   }
   return <div className="page-enter">
     <Link href="/projects" className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-[#66808a]" data-testid="link-back-projects"><ArrowLeft size={16} /> Back to projects</Link>
     {notice && <div className="mb-5"><AlertMessage>{notice}</AlertMessage></div>}
     <div className="grid gap-6 xl:grid-cols-[1fr_350px]">
       <div>
-        <section className="rounded-2xl border border-[#dce9e8] bg-white p-6 md:p-8"><div className="flex flex-wrap items-center justify-between gap-3"><span className="rounded-full bg-[#e9f4f2] px-3 py-1.5 text-xs font-bold text-[#35767a]">{project.category}</span><StatusPill status={project.status} /></div><h1 className="font-display mt-5 text-3xl font-extrabold tracking-[-.055em] text-[#193f50] md:text-4xl">{project.title}</h1><div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#6b8289]"><span className="flex items-center gap-2"><span className="grid size-7 place-items-center rounded-full bg-[#e8f3f1] text-xs font-bold text-[#357b79]">{initials(project.businessName)}</span> Posted by <Link href={`/profile/${project.businessId}`} className="font-bold text-[#32747a]" data-testid="link-business-profile">{project.businessName}</Link></span><span>Posted {formatDate(project.createdAt)}</span></div>
+        {editing && <form onSubmit={saveBrief} className="mb-6 rounded-2xl border border-[#dce9e8] bg-white p-5 md:p-7">
+          <div className="mb-5 flex items-center justify-between gap-3"><div><h2 className="font-display text-lg font-extrabold text-[#244958]">Edit your brief</h2><p className="mt-1 text-sm text-[#71868e]">Changes will be visible to interested students.</p></div><Button type="button" variant="quiet" onClick={() => setEditing(false)}>Cancel</Button></div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Project title" name="title" defaultValue={project.title} required minLength={4} />
+            <label className="block"><span className="mb-2 block text-sm font-bold text-[#385a67]">Project category</span><select name="category" defaultValue={project.category} className={inputStyle} required>{['Business website','Landing page','Online store','Portfolio','Brand & design','Other'].map(x => <option key={x}>{x}</option>)}</select></label>
+            <label className="block md:col-span-2"><span className="mb-2 block text-sm font-bold text-[#385a67]">Project description</span><textarea name="about" defaultValue={project.about} required minLength={10} rows={4} className={inputStyle + ' resize-y'} /></label>
+            <Field label="Pages needed (comma-separated)" name="requiredPages" defaultValue={project.requiredPages?.join(', ') || ''} />
+            <Field label="Features (comma-separated)" name="requiredFeatures" defaultValue={project.requiredFeatures?.join(', ') || ''} />
+            <Field label="Minimum budget" name="minBudget" type="number" min="0" defaultValue={String(project.minBudget)} required />
+            <Field label="Maximum budget" name="maxBudget" type="number" min="1" defaultValue={String(project.maxBudget)} required />
+            <Field label="Ideal finish date" name="deadline" type="date" defaultValue={project.deadline || ''} />
+            <Field label="Reference links (one per line)" name="referenceLinks" defaultValue={project.referenceLinks?.join('\\n') || ''} multiline />
+            <label className="block md:col-span-2"><span className="mb-2 block text-sm font-bold text-[#385a67]">Additional notes</span><textarea name="notes" defaultValue={project.notes || ''} rows={3} className={inputStyle + ' resize-y'} /></label>
+          </div>
+          <div className="mt-5 flex justify-end"><Button type="submit" disabled={update.isPending}>{update.isPending ? 'Saving…' : 'Save brief changes'}</Button></div>
+        </form>}
+        <section className="rounded-2xl border border-[#dce9e8] bg-white p-6 md:p-8"><div className="flex flex-wrap items-center justify-between gap-3"><span className="rounded-full bg-[#e9f4f2] px-3 py-1.5 text-xs font-bold text-[#35767a]">{project.category}</span><div className="flex items-center gap-2"><StatusPill status={project.status} />{own && project.status === 'open' && <Button variant="outline" className="min-h-8 px-3 text-xs" onClick={() => setEditing(!editing)}>{editing ? 'Close editor' : 'Edit brief'}</Button>}</div></div><h1 className="font-display mt-5 text-3xl font-extrabold tracking-[-.055em] text-[#193f50] md:text-4xl">{project.title}</h1><div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#6b8289]"><span className="flex items-center gap-2"><span className="grid size-7 place-items-center rounded-full bg-[#e8f3f1] text-xs font-bold text-[#357b79]">{initials(project.businessName)}</span> Posted by <Link href={`/profile/${project.businessId}`} className="font-bold text-[#32747a]" data-testid="link-business-profile">{project.businessName}</Link></span><span>Posted {formatDate(project.createdAt)}</span></div>
           <div className="my-7 h-px bg-[#edf2f1]" /><h2 className="font-display text-lg font-extrabold text-[#294d5a]">About this project</h2><p className="mt-3 whitespace-pre-line text-sm leading-7 text-[#607982]">{project.about}</p>
           <div className="mt-7 grid gap-6 sm:grid-cols-2"><div><h3 className="font-display text-sm font-extrabold text-[#315562]">Pages to include</h3><div className="mt-3 flex flex-wrap gap-2">{project.requiredPages?.length ? project.requiredPages.map(page => <span key={page} className="rounded-lg bg-[#eff6f4] px-3 py-1.5 text-xs font-semibold text-[#52717a]">{page}</span>) : <span className="text-sm text-[#84969b]">To be discussed</span>}</div></div><div><h3 className="font-display text-sm font-extrabold text-[#315562]">Features and tools</h3><div className="mt-3 flex flex-wrap gap-2">{project.requiredFeatures?.length ? project.requiredFeatures.map(f => <span key={f} className="rounded-lg bg-[#eff6f4] px-3 py-1.5 text-xs font-semibold text-[#52717a]">{f}</span>) : <span className="text-sm text-[#84969b]">To be discussed</span>}</div></div></div>
           {project.notes && <div className="mt-7 rounded-xl bg-[#f6f9f8] p-4"><h3 className="text-sm font-bold text-[#315562]">A few more details</h3><p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#667e86]">{project.notes}</p></div>}
@@ -354,12 +387,13 @@ function ProjectDetails() {
       </div>
       <aside className="space-y-5">
         <section className="rounded-2xl border border-[#dce9e8] bg-white p-5"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#789096]">Project budget</p><p className="font-display mt-2 text-3xl font-extrabold tracking-tight text-[#226f72]"><Money amount={project.minBudget} />–<Money amount={project.maxBudget} /></p><div className="mt-5 space-y-3 border-t border-[#edf2f1] pt-4 text-sm text-[#607a83]"><div className="flex justify-between"><span>Target date</span><strong className="text-[#345662]">{formatDate(project.deadline)}</strong></div><div className="flex justify-between"><span>Proposals</span><strong className="text-[#345662]">{project.proposalCount}</strong></div></div>
-          {canApply && <Button onClick={() => setFormOpen(!formOpen)} className="mt-5 w-full">{formOpen ? 'Close proposal form' : 'Send a proposal'} <ArrowRight size={16} /></Button>}
-          {!me && <Button href="/sign-up" className="mt-5 w-full">Join to send a proposal <ArrowRight size={16} /></Button>}
+          {canApply && <Button onClick={apply} className="mt-5 w-full" disabled={submitProposal.isPending || alreadyInterested}>{submitProposal.isPending ? 'Saving interest…' : alreadyInterested ? 'Interest recorded' : 'I’m interested & available for this budget'} <Check size={16} /></Button>}
+          {canApply && <p className="mt-2 text-xs leading-5 text-[#789096]">One click tells this business you’re interested in this type of work and can work within its posted budget.</p>}
+          {!me && <Button href="/sign-up" className="mt-5 w-full">Join to express interest <ArrowRight size={16} /></Button>}
           {own && project.status === 'open' && <Button onClick={() => update.mutate({ projectId: id, data: { status: 'cancelled' } }, { onSuccess: () => client.invalidateQueries({ queryKey: getGetProjectQueryKey(id) }) })} variant="outline" className="mt-5 w-full" disabled={update.isPending}>Close this project</Button>}
           {project.status === 'active' && <Button href={`/projects/${id}/workspace`} className="mt-5 w-full">Open workspace <ArrowRight size={16} /></Button>}
         </section>
-        {formOpen && <form onSubmit={apply} className="rounded-2xl border border-[#dce9e8] bg-white p-5"><h2 className="font-display text-lg font-extrabold text-[#244958]">Make your proposal</h2><p className="mt-1 text-sm leading-5 text-[#71868e]">Tell the owner how you’d approach their brief.</p><label className="mt-4 block text-sm font-bold text-[#385a67]">Your message<textarea required minLength={20} value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Share your approach, relevant experience, and any questions." className={`${inputStyle} mt-2 resize-y`} data-testid="input-proposal-message" /></label><div className="mt-4 grid grid-cols-2 gap-3"><Field label="Your quote" type="number" min="1" value={quote} onChange={setQuote} placeholder="$" required /><Field label="Timeline (days)" type="number" min="1" value={days} onChange={setDays} required /></div><Button type="submit" className="mt-5 w-full" disabled={submitProposal.isPending}>{submitProposal.isPending ? 'Sending…' : 'Send proposal'} <Send size={15} /></Button></form>}
+
         <div className="rounded-2xl bg-[#e5f1ef] p-5"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-[#287d78]" size={20} /><div><h3 className="font-display font-extrabold text-[#315662]">Work with clarity</h3><p className="mt-1.5 text-sm leading-6 text-[#668087]">Agree on deliverables, due dates, and feedback before the work gets underway.</p></div></div></div>
       </aside>
     </div>
@@ -432,16 +466,18 @@ function Onboarding() {
 }
 function PublicProfilePage() {
   const { userId = '' } = useParams<{ userId: string }>();
+  const { data: me } = useGetCurrentUser();
   const { data: profile, isLoading, isError, refetch } = useGetPublicProfile(userId);
   const { data: reviews, isLoading: reviewsLoading } = useListUserReviews(userId);
   if (isLoading) return <div className="mx-auto max-w-4xl"><PageHeading title="Creator profile" /><SkeletonRows /></div>;
   if (isError || !profile) return <div className="mx-auto max-w-4xl"><PageHeading title="Creator profile" /><ErrorState retry={() => refetch()} /></div>;
   return <div className="page-enter mx-auto max-w-5xl">
-    <Link href="/dashboard" className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-[#66808a]" data-testid="link-back-dashboard"><ArrowLeft size={16} /> Back to workspace</Link>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-bold text-[#66808a]" data-testid="link-back-dashboard"><ArrowLeft size={16} /> Back to workspace</Link>{me?.id === profile.id && <Button href="/onboarding" variant="outline"><FileText size={15} /> Edit profile</Button>}</div>
     <section className="overflow-hidden rounded-[1.75rem] border border-[#dce9e8] bg-white">
       <div className="h-32 bg-[radial-gradient(ellipse_at_80%_20%,rgba(170,224,215,.9),transparent_40%),linear-gradient(110deg,#e7f3f1,#dcebea)] md:h-44" />
       <div className="px-5 pb-7 md:px-9"><div className="-mt-11 flex flex-wrap items-end justify-between gap-4"><div className="flex items-end gap-4"><span className="grid size-[88px] place-items-center rounded-[1.5rem] border-4 border-white bg-[#277f83] font-display text-2xl font-extrabold text-white shadow-sm">{initials(profile.name)}</span><div className="pb-1"><span className="rounded-full bg-[#e7f4f0] px-2.5 py-1 text-[11px] font-bold capitalize text-[#367b78]">{profile.role === 'student' ? 'Student creator' : 'Small business'}</span><h1 className="font-display mt-2 text-2xl font-extrabold tracking-[-.05em] text-[#193f50] md:text-3xl" data-testid="text-profile-name">{profile.name}</h1></div></div>{profile.role === 'student' && <div className="flex gap-5 pb-1"><div><strong className="font-display block text-xl font-extrabold text-[#326e70]">{profile.completedProjects}</strong><span className="text-xs text-[#7b8e94]">projects</span></div><div><strong className="font-display flex items-center gap-1 text-xl font-extrabold text-[#326e70]"><Star size={16} className="fill-[#daa84d] text-[#daa84d]" />{profile.rating.toFixed(1)}</strong><span className="text-xs text-[#7b8e94]">rating</span></div></div>}</div>
         <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#70858d]"><span className="inline-flex items-center gap-1.5"><Compass size={15} />{profile.category || 'Web and digital'}</span>{profile.location && <span>{profile.location}</span>}{profile.availability && <span className="rounded-full bg-[#edf7f2] px-2.5 py-1 text-xs font-bold text-[#357765]">{profile.availability}</span>}</div>
+        {me?.id === profile.id && <p className="mt-4 text-sm text-[#607982]"><span className="font-bold text-[#345662]">Account email:</span> {me.email || 'Email not available'}</p>}
         <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-[#607982]">{profile.bio || 'A WebEarn member building good things with local businesses.'}</p>
         {!!profile.skills?.length && <div className="mt-5 flex flex-wrap gap-2">{profile.skills.map(s => <span key={s} className="rounded-full bg-[#edf5f3] px-3 py-1.5 text-xs font-semibold text-[#50717a]">{s}</span>)}</div>}
         {!!profile.portfolioLinks?.length && <div className="mt-6 border-t border-[#edf2f1] pt-5"><h2 className="font-display font-extrabold text-[#315562]">Portfolio &amp; websites</h2><div className="mt-3 flex flex-wrap gap-2">{profile.portfolioLinks.map((url, i) => <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-[#d9e7e5] px-3 py-2 text-sm font-bold text-[#347984] hover:bg-[#f4f9f7]" data-testid={`link-portfolio-${i}`}>View work <ExternalLink size={14} /></a>)}</div></div>}
