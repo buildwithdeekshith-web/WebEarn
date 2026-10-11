@@ -493,7 +493,7 @@ function Guarded({ children }: { children: ReactNode }) {
   return <><Show when="signed-in"><ProfileGate>{children}</ProfileGate></Show><Show when="signed-out"><Redirect to="/" /></Show></>;
 }
 function PublicAccess({ children }: { children: ReactNode }) {
-  return <><Show when="signed-in"><ProfileGate><PrivateShell>{children}</PrivateShell></ProfileGate></Show><Show when="signed-out"><PublicNav /><main className="mx-auto max-w-[1360px] px-5 py-8 md:px-10">{children}</main><Footer /></Show></>;
+  return <><Show when="signed-in"><ProfileGate>{children}</ProfileGate></Show><Show when="signed-out"><PublicNav /><main className="mx-auto max-w-[1360px] px-5 py-8 md:px-10">{children}</main><Footer /></Show></>;
 }
 function ProfileGate({ children }: { children: ReactNode }) {
   const { data: me, isLoading, isError, refetch } = useGetCurrentUser();
