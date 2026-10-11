@@ -209,6 +209,14 @@ export const ProjectUpdateStatus = {
 
 export interface ProjectUpdate {
   title?: string;
+  category?: string;
+  about?: string;
+  requiredPages?: string[];
+  requiredFeatures?: string[];
+  minBudget?: number;
+  maxBudget?: number;
+  deadline?: string | null;
+  referenceLinks?: string[];
   notes?: string;
   status?: ProjectUpdateStatus;
 }
