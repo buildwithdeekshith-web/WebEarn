@@ -79,7 +79,7 @@ function ClerkCacheReset() {
 function Mark({ inverse = false }: { inverse?: boolean }) {
   return <span className={`inline-flex items-center gap-2.5 ${inverse ? 'text-white' : 'text-[#173e50]'}`}>
     <span className="grid size-9 place-items-center rounded-xl bg-[#1a8194] text-white shadow-sm"><span className="font-display text-lg font-extrabold">w</span></span>
-    <span className="font-display text-[20px] font-extrabold tracking-[-.055em]">we<span className={inverse ? 'text-[#73d8c8]' : 'text-[#198d8d]'}>earn</span></span>
+    <span className="font-display text-[20px] font-extrabold tracking-[-.055em]">web<span className={inverse ? 'text-[#73d8c8]' : 'text-[#198d8d]'}>earn</span></span>
   </span>;
 }
 
