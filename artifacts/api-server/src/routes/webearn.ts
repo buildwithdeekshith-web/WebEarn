@@ -246,9 +246,10 @@ router.get("/projects", async (req, res): Promise<void> => {
   }
   const { search, category, maxBudget, sort } = parsed.data;
   const viewer = await viewerFor(req);
-  const filters = [eq(projects.status, "open")];
-  // Business accounts see only their own briefs; students can browse all open briefs.
-  if (viewer?.role === "business") filters.push(eq(projects.businessId, viewer.id));
+  // Businesses manage all of their own briefs; students browse open briefs only.
+  const filters = viewer?.role === "business"
+    ? [eq(projects.businessId, viewer.id)]
+    : [eq(projects.status, "open")];
   if (category) filters.push(eq(projects.category, category));
   if (maxBudget !== undefined) filters.push(sql`${projects.minBudget} <= ${maxBudget}`);
   if (search) filters.push(or(ilike(projects.title, `%${search}%`), ilike(projects.about, `%${search}%`))!);
