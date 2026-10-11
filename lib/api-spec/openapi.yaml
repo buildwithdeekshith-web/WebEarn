@@ -649,7 +649,15 @@ components:
     ProjectUpdate:
       type: object
       properties:
-        title: { type: string }
+        title: { type: string, minLength: 4 }
+        category: { type: string }
+        about: { type: string, minLength: 10 }
+        requiredPages: { type: array, items: { type: string } }
+        requiredFeatures: { type: array, items: { type: string } }
+        minBudget: { type: number, minimum: 0 }
+        maxBudget: { type: number, minimum: 1 }
+        deadline: { type: ["string", "null"], format: date }
+        referenceLinks: { type: array, items: { type: string } }
         notes: { type: string }
         status: { type: string, enum: [open, active, submitted, revision_requested, approved, disputed, completed, cancelled] }
     Proposal:

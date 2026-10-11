@@ -234,7 +234,15 @@ export const UpdateProjectParams = zod.object({
 })
 
 export const UpdateProjectBody = zod.object({
-  "title": zod.string().optional(),
+  "title": zod.string().min(4).optional(),
+  "category": zod.string().optional(),
+  "about": zod.string().min(10).optional(),
+  "requiredPages": zod.array(zod.string()).optional(),
+  "requiredFeatures": zod.array(zod.string()).optional(),
+  "minBudget": zod.number().min(0).optional(),
+  "maxBudget": zod.number().min(1).optional(),
+  "deadline": zod.coerce.date().nullable().optional(),
+  "referenceLinks": zod.array(zod.string()).optional(),
   "notes": zod.string().optional(),
   "status": zod.enum(['open', 'active', 'submitted', 'revision_requested', 'approved', 'disputed', 'completed', 'cancelled']).optional()
 })
